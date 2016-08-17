@@ -376,16 +376,16 @@ class EasyBridgeUploader(object):
                 
     def uploadZipFile(self, host, folder, username, password):
         try:
-            cnopts = pysftp.CnOpts(knownhosts='./known_hosts.txt')
-            cnopts.hostkeys = None
-            sftp = pysftp.Connection(host, username=username, password=password, cnopts=cnopts)
+            # cnopts = pysftp.CnOpts(knownhosts='./known_hosts.txt')
+            # cnopts.hostkeys = None
+            sftp = pysftp.Connection(host, username=username, password=password)
         except Exception as e:
             print "Can't connect SFTP: %s" % e
             return
         try:
-            localpath = os.path.join(self.output_dir, 'KENTFIELD.zip')
-            remotepath = os.path.join(folder, 'KENTFIELD.zip')
-            sftp.put(localpath, remotepath)
+            with sftp.cd(folder):
+	            localpath = os.path.join(self.output_dir, 'KENTFIELD.zip')
+	            sftp.put(localpath)
         except Exception as e:
             print "Can't put SFTP: %s" % e
         finally:
