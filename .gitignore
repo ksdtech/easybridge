@@ -1,0 +1,4 @@
+.DS_Store
+known_hosts.txt
+*.cmd
+output/*
