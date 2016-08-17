@@ -5,6 +5,8 @@ import dateutil.parser
 import os
 import re
 import sys
+import zipfile
+import pysftp
 
 DAYS_PAST = 7
 DAYS_UPCOMING = 7
@@ -106,9 +108,13 @@ Expression
 def formatDate(s):
     m, d, y = s.split('/')
     return '-'.join((y, m, d))
+    
+def parseDate(s):
+    dt = dateutil.parser.parse(s)
+    return dt.date()
 
 class EasyBridgeUploader(object):
-    def __init__(self, source_dir=None, output_dir=None, autosend=False, effective_date=datetime.date.today()):
+    def __init__(self, source_dir=None, output_dir=None, autosend=False, effective_date=None):
         self.students = { }
         self.teachers = { }
         self.courses = { }
@@ -126,9 +132,9 @@ class EasyBridgeUploader(object):
             '104092', # Beales
             '104065', # Whitehouse
         ]
-        self.current_year = 2016
-        self.year_start = '2015-08-25'
-        self.year_end = '2016-06-11'
+        self.current_year = 2017
+        self.year_start = '2016-08-29'
+        self.year_end = '2017-06-17'
         self.source_dir = source_dir or './source'
         self.output_dir = output_dir or './output'
         try:
@@ -136,11 +142,13 @@ class EasyBridgeUploader(object):
         except:
             pass
         self.autosend = autosend
-        self.effective_date = datetime.date(2015, 9, 1) # effective_date
+        if effective_date is None:
+          effective_date = datetime.date.today()
+        self.effective_date = effective_date
         self.loadStudents()
         self.loadTeachers('kent')
         self.loadSections('kent')
-        self.loadEnrollments()
+        self.loadEnrollments('kent')
         
     def excludeFromEnrollment(self, school_course_id):
         for ex in DO_NOT_ENROLL:
@@ -211,13 +219,13 @@ class EasyBridgeUploader(object):
                     else:
                         print "section %s.%s (%s): missing teacher %s" % (course_number, section_number, school_id, teacher_id)
                 
-    def loadEnrollments(self):
-        with open(os.path.join(self.source_dir, 'cc.txt')) as f:
+    def loadEnrollments(self, school_name):
+        with open(os.path.join(self.source_dir, 'rosters-%s.txt' % school_name)) as f:
             fieldnames = None if not self.autosend else CC_HEADERS
             cc = csv.DictReader(f, fieldnames=fieldnames, dialect='excel-tab', lineterminator='\n')
             for row in cc:
-                start_date = dateutil.parser.parse(row['DateEnrolled']).date() - datetime.timedelta(days=DAYS_UPCOMING)
-                end_date   = dateutil.parser.parse(row['DateLeft']).date() + datetime.timedelta(days=DAYS_PAST)
+                start_date = parseDate(row['DateEnrolled']) - datetime.timedelta(days=DAYS_UPCOMING)
+                end_date   = parseDate(row['DateLeft']) + datetime.timedelta(days=DAYS_PAST)
                 if self.effective_date >= start_date and self.effective_date <= end_date:
                     school_id = row['SchoolID']
                     course_number = row['Course_Number']
@@ -360,18 +368,47 @@ class EasyBridgeUploader(object):
                     w.writerow([native_assignment_code, teacher_number, self.current_year, school_id, 
                         self.year_start, self.year_end, 'Teacher'])
 
+    def zipAllFiles(self):
+        with zipfile.ZipFile(os.path.join(self.output_dir, 'KENTFIELD.zip'), 'w') as myzip:
+            for name in ['CODE_DISTRICT', 'SCHOOL', 'STAFF', 'STUDENT', 'PIF_SECTION', 'PIF_SECTION_STAFF', 'PIF_SECTION_STUDENT', 'ASSIGNMENT']:
+                arcname = name + '.txt'
+                myzip.write(os.path.join(self.output_dir, arcname), arcname)
+                
+    def uploadZipFile(self, host, folder, username, password):
+        try:
+            cnopts = pysftp.CnOpts(knownhosts='./known_hosts.txt')
+            cnopts.hostkeys = None
+            sftp = pysftp.Connection(host, username=username, password=password, cnopts=cnopts)
+        except Exception as e:
+            print "Can't connect SFTP: %s" % e
+            return
+        try:
+            localpath = os.path.join(self.output_dir, 'KENTFIELD.zip')
+            remotepath = os.path.join(folder, 'KENTFIELD.zip')
+            sftp.put(localpath, remotepath)
+        except Exception as e:
+            print "Can't put SFTP: %s" % e
+        finally:
+            sftp.close()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process files for Pearson EasyBridge.')
     parser.add_argument('-a', '--autosend', action='store_true',
         help='use autosend files (no header line)')
+    parser.add_argument('-t', '--effective-date')
     parser.add_argument('-s', '--source_dir', help='source directory')
     parser.add_argument('-o', '--output_dir', help='output directory')
+    parser.add_argument('-u', '--username')
+    parser.add_argument('-p', '--password')
     parser.add_argument('-d', '--dump', action='store_true', 
         help='dump courses and sections')
     args = parser.parse_args()
 
-    uploader = EasyBridgeUploader(source_dir=args.source_dir, output_dir=args.output_dir, autosend=args.autosend)
+    eff_date = None
+    if args.effective_date:
+      eff_date = parseDate(args.effective_date)
+      
+    uploader = EasyBridgeUploader(source_dir=args.source_dir, output_dir=args.output_dir, autosend=args.autosend, effective_date=eff_date)
     if args.dump:
         uploader.dumpAllCourses()
         uploader.dumpActiveEnrollments()
@@ -384,4 +421,5 @@ if __name__ == '__main__':
         uploader.writeSectionStaffFile()
         uploader.writeSectionStudentFile()
         uploader.writeAssignmentFile()
-
+        uploader.zipAllFiles()
+        uploader.uploadZipFile('sftp.pifdata.net', 'SIS', args.username, args.password)
