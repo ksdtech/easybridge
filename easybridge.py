@@ -12,7 +12,6 @@ DAYS_PAST = 7
 DAYS_UPCOMING = 7
 AUTOSEND = True
 LINETERM_IN = "\n"
-LINETERM_OUT = "\n"
 
 STUDENT_HEADERS = [s.strip() for s in '''
 Student_Number
@@ -174,6 +173,8 @@ class EasyBridgeUploader(object):
     def loadStudents(self):
         with open(os.path.join(self.source_dir, 'students.txt')) as f:
             fieldnames = None if not self.autosend else STUDENT_HEADERS
+            students = csv.DictReader(f, fieldnames=fieldnames, 
+                dialect='excel-tab', lineterminator=LINETERM_IN)
             for row in students:
                 student_id = 'S' + row['Student_Number']
                 row.update({'Enrolled': '0'})
@@ -182,6 +183,8 @@ class EasyBridgeUploader(object):
     def loadTeachers(self, school_name):
         with open(os.path.join(self.source_dir, 'teachers-%s.txt' % school_name)) as f:
             fieldnames = None if not self.autosend else TEACHER_HEADERS
+            teachers = csv.DictReader(f, fieldnames=fieldnames,
+                dialect='excel-tab', lineterminator=LINETERM_IN)
             for row in teachers:
                 teacher_number = row['TeacherNumber']
                 teacher_id = 'T' + teacher_number
@@ -193,6 +196,8 @@ class EasyBridgeUploader(object):
     def loadSections(self, school_name):
         with open(os.path.join(self.source_dir, 'courses-%s.txt' % school_name)) as f:
             fieldnames = None if not self.autosend else COURSE_HEADERS
+            courses = csv.DictReader(f, fieldnames=fieldnames, 
+                dialect='excel-tab', lineterminator=LINETERM_IN)
             for row in courses:
                 school_id = row['SchoolID']
                 course_number = row['Course_Number']
@@ -202,6 +207,8 @@ class EasyBridgeUploader(object):
 
         with open(os.path.join(self.source_dir, 'sections-%s.txt' % school_name)) as f:
             fieldnames = None if not self.autosend else SECTION_HEADERS
+            sections = csv.DictReader(f, fieldnames=fieldnames,
+                dialect='excel-tab', lineterminator=LINETERM_IN)
             for row in sections:
                 school_id = row['SchoolID']
                 course_number = row['Course_Number']
@@ -222,6 +229,8 @@ class EasyBridgeUploader(object):
     def loadEnrollments(self, school_name):
         with open(os.path.join(self.source_dir, 'rosters-%s.txt' % school_name)) as f:
             fieldnames = None if not self.autosend else CC_HEADERS
+            cc = csv.DictReader(f, fieldnames=fieldnames,
+                dialect='excel-tab', lineterminator=LINETERM_IN)
             for row in cc:
                 start_date = parseDate(row['DateEnrolled']) - datetime.timedelta(days=DAYS_UPCOMING)
                 end_date   = parseDate(row['DateLeft']) + datetime.timedelta(days=DAYS_PAST)
@@ -238,6 +247,7 @@ class EasyBridgeUploader(object):
                         
     def dumpActiveEnrollments(self):
         f = sys.stdout
+        w = csv.writer(f, dialect='excel-tab')
         w.writerow(['course_name', 'course_number', 'section_number', 'teacher_id', 'teacher_name', 'code', 'student_id'])
         for enrollment_id, enrollment_data in self.enrollments.iteritems():
             school_id, course_id, student_id, course_number, section_number, teacher_id = enrollment_id.split('.')
@@ -250,7 +260,7 @@ class EasyBridgeUploader(object):
 
     def writeDistrictFile(self):
         with open(os.path.join(self.output_dir, 'CODE_DISTRICT.txt'), 'w') as f:
-            w = csv.writer(f, dialect='excel', lineterminator=LINETERM_OUT, quoting=csv.QUOTE_ALL)
+            w = csv.writer(f, dialect='excel', quoting=csv.QUOTE_ALL)
             w.writerow(['district_code', 'district_name', 
                 'address_1', 'address_2', 'city', 'state', 'zip', 'phone', 'current_school_year'])
             w.writerow(['2165334', 'Kentfield Elementary School District', 
@@ -258,7 +268,7 @@ class EasyBridgeUploader(object):
 
     def writeSchoolsFile(self):
         with open(os.path.join(self.output_dir, 'SCHOOL.txt'), 'w') as f:
-            w = csv.writer(f, dialect='excel', lineterminator=LINETERM_OUT, quoting=csv.QUOTE_ALL)
+            w = csv.writer(f, dialect='excel', quoting=csv.QUOTE_ALL)
             w.writerow(['school_code', 'school_name', 'district_code', 'grade_start', 'grade_end',
                 'address_1', 'address_2', 'city', 'state', 'zip', 'phone'])
             w.writerow([104, 'Adaline E. Kent Middle School', '2165334', '5', '8',
@@ -267,7 +277,7 @@ class EasyBridgeUploader(object):
     def writeSectionsFile(self):
         seen_courses = { }
         with open(os.path.join(self.output_dir, 'PIF_SECTION.txt'), 'w')  as f:
-            w = csv.writer(f, dialect='excel', lineterminator=LINETERM_OUT, quoting=csv.QUOTE_ALL)
+            w = csv.writer(f, dialect='excel', quoting=csv.QUOTE_ALL)
             w.writerow(['native_section_code', 'school_code', # 'section_type', 'section_type_description',
                 'date_start', 'date_end', 'school_year', 'course_number', 
                 'course_name','section_name', 'section_number'])
@@ -291,7 +301,7 @@ class EasyBridgeUploader(object):
 
     def writeStaffFile(self):
         with open(os.path.join(self.output_dir, 'STAFF.txt'), 'w') as f:
-            w = csv.writer(f, dialect='excel', lineterminator=LINETERM_OUT, quoting=csv.QUOTE_ALL)
+            w = csv.writer(f, dialect='excel', quoting=csv.QUOTE_ALL)
             w.writerow(['staff_code', 'last_name', 'first_name', 'email', 'staff_number', 'federated_id'])
             for teacher_id, teacher_data in self.teachers.iteritems():
                 if teacher_data['Assigned'] != '0':
@@ -304,7 +314,7 @@ class EasyBridgeUploader(object):
         
     def writeStudentFile(self):
         with open(os.path.join(self.output_dir, 'STUDENT.txt'), 'w') as f:
-            w = csv.writer(f, dialect='excel', lineterminator=LINETERM_OUT, quoting=csv.QUOTE_ALL)
+            w = csv.writer(f, dialect='excel', quoting=csv.QUOTE_ALL)
             w.writerow(['student_code', 'last_name', 'first_name', 'gender_code', 
                 'email', 'student_number', 'federated_id'])
             for student_id, student_data in self.students.iteritems():
@@ -320,7 +330,7 @@ class EasyBridgeUploader(object):
 
     def writeSectionStaffFile(self):
         with open(os.path.join(self.output_dir, 'PIF_SECTION_STAFF.txt'), 'w')  as f:
-            w = csv.writer(f, dialect='excel', lineterminator=LINETERM_OUT, quoting=csv.QUOTE_ALL)
+            w = csv.writer(f, dialect='excel', quoting=csv.QUOTE_ALL)
             w.writerow(['section_teacher_code', 'staff_code', 'native_section_code', 
                 'date_start', 'date_end', 'school_year', 'teacher_of_record'])
             for school_section_id in self.sections:
@@ -341,7 +351,7 @@ class EasyBridgeUploader(object):
 
     def writeSectionStudentFile(self):
         with open(os.path.join(self.output_dir, 'PIF_SECTION_STUDENT.txt'), 'w')  as f:
-            w = csv.writer(f, dialect='excel', lineterminator=LINETERM_OUT, quoting=csv.QUOTE_ALL)
+            w = csv.writer(f, dialect='excel', quoting=csv.QUOTE_ALL)
             w.writerow(['section_student_code', 'student_code', 'native_section_code', 
                 'date_start', 'date_end', 'school_year'])
             for enrollment_id, enrollment_data in self.enrollments.iteritems():
@@ -355,7 +365,7 @@ class EasyBridgeUploader(object):
 
     def writeAssignmentFile(self):
         with open(os.path.join(self.output_dir, 'ASSIGNMENT.txt'), 'w')  as f:
-            w = csv.writer(f, dialect='excel', lineterminator=LINETERM_OUT, quoting=csv.QUOTE_ALL)
+            w = csv.writer(f, dialect='excel', quoting=csv.QUOTE_ALL)
             w.writerow(['native_assignment_code', 'staff_code', 'school_year', 'institution_code',
                 'date_start', 'date_end', 'position_code'])
             school_id = '104'
