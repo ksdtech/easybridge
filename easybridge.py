@@ -115,6 +115,11 @@ def parseDate(s):
 
 class EasyBridgeUploader(object):
     def __init__(self, source_dir=None, output_dir=None, autosend=False, effective_date=None):
+        # Must change at start of year
+        self.current_year = 2016
+        self.year_start = '2016-08-29'
+        self.year_end = '2017-06-17'
+        
         self.students = { }
         self.teachers = { }
         self.courses = { }
@@ -132,9 +137,6 @@ class EasyBridgeUploader(object):
             '104092', # Beales
             '104065', # Whitehouse
         ]
-        self.current_year = 2017
-        self.year_start = '2016-08-29'
-        self.year_end = '2017-06-17'
         self.source_dir = source_dir or './source'
         self.output_dir = output_dir or './output'
         try:
@@ -386,6 +388,7 @@ class EasyBridgeUploader(object):
             with sftp.cd(folder):
 	            localpath = os.path.join(self.output_dir, 'KENTFIELD.zip')
 	            sftp.put(localpath)
+	            print "zip file uploaded"
         except Exception as e:
             print "Can't put SFTP: %s" % e
         finally:
@@ -396,6 +399,7 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--autosend', action='store_true',
         help='use autosend files (no header line)')
     parser.add_argument('-t', '--effective-date')
+    parser.add_argument('-n', '--dry-run', action='store_true')
     parser.add_argument('-s', '--source_dir', help='source directory')
     parser.add_argument('-o', '--output_dir', help='output directory')
     parser.add_argument('-u', '--username')
@@ -422,4 +426,7 @@ if __name__ == '__main__':
         uploader.writeSectionStudentFile()
         uploader.writeAssignmentFile()
         uploader.zipAllFiles()
-        uploader.uploadZipFile('sftp.pifdata.net', 'SIS', args.username, args.password)
+        if args.dry_run:
+        	print "dry run, zip file created but not uploaded"
+        else:
+	        uploader.uploadZipFile('sftp.pifdata.net', 'SIS', args.username, args.password)
