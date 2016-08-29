@@ -276,6 +276,7 @@ class EasyBridgeUploader(object):
 
     def writeSectionsFile(self):
         seen_courses = { }
+        course_year = str(self.current_year + 1)
         with open(os.path.join(self.output_dir, 'PIF_SECTION.txt'), 'w')  as f:
             w = csv.writer(f, dialect='excel', quoting=csv.QUOTE_ALL)
             w.writerow(['native_section_code', 'school_code', # 'section_type', 'section_type_description',
@@ -293,7 +294,7 @@ class EasyBridgeUploader(object):
                     period = re.sub(r'^(\d+)(.+)$', r'P\1', row['Expression'])
 
                     # TODO: Check Onboarding Guide about maximum length of the section name 
-                    section_name = course_name + ' - ' + self.getTeacherName('T' + row['[05]TeacherNumber']) + ' ' + period + ' ' + str(self.current_year)
+                    section_name = course_name + ' - ' + self.getTeacherName('T' + row['[05]TeacherNumber']) + ' ' + period + ' ' + course_year
                     w.writerow([native_section_code, school_id,
                         formatDate(row['[13]FirstDay']), formatDate(row['[13]LastDay']), 
                         self.current_year, course_number, 
