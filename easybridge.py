@@ -134,10 +134,6 @@ class EasyBridgeUploader(object):
             '8102', # Math 8
             '8128', # Algebra 8 
         ]
-        self.assigned_teachers = [
-            '104092', # Beales
-            '104065', # Whitehouse
-        ]
         self.source_dir = source_dir or './source'
         self.output_dir = output_dir or './output'
         try:
@@ -149,7 +145,8 @@ class EasyBridgeUploader(object):
           effective_date = datetime.date.today()
         self.effective_date = effective_date
         self.loadStudents()
-        self.loadTeachers('kent')
+        self.loadTeachers('kent', False)
+        self.loadTeachers('kent', True)
         self.loadSections('kent')
         self.loadEnrollments('kent')
         
@@ -179,18 +176,24 @@ class EasyBridgeUploader(object):
                 student_id = 'S' + row['Student_Number']
                 row.update({'Enrolled': '0'})
                 self.students[student_id] = row
-
-    def loadTeachers(self, school_name):
-        with open(os.path.join(self.source_dir, 'teachers-%s.txt' % school_name)) as f:
+    
+    # Create an assignments-kent.txt file that has the assigned teachers (and aides)
+    # Same format as teachers-kent.txt            
+    def loadTeachers(self, school_name, assignments):
+        file_name = 'teachers-%s.txt' % school_name
+        if assignments:
+            file_name = 'assignments-%s.txt' % school_name
+        with open(os.path.join(self.source_dir, file_name)) as f:
             fieldnames = None if not self.autosend else TEACHER_HEADERS
             teachers = csv.DictReader(f, fieldnames=fieldnames,
                 dialect='excel-tab', lineterminator=LINETERM_IN)
             for row in teachers:
                 teacher_number = row['TeacherNumber']
                 teacher_id = 'T' + teacher_number
-                row.update({'Assigned': '0'})
-                if teacher_number in self.assigned_teachers:
-                    row['Assigned'] = '2'
+                if assignments:
+                  row.update({'Assigned': '2'})
+                else:
+                  row.update({'Assigned': '0'})
                 self.teachers[teacher_id] = row
 
     def loadSections(self, school_name):
