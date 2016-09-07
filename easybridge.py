@@ -13,6 +13,13 @@ DAYS_UPCOMING = 7
 AUTOSEND = True
 LINETERM_IN = "\n"
 
+MATH_COURSE_HEADERS = [s.strip() for s in '''
+SchoolID
+Course_Number
+Course_Name
+School_Name
+'''.split('\n')[1:-1]]
+
 STUDENT_HEADERS = [s.strip() for s in '''
 Student_Number
 SchoolID
@@ -32,6 +39,15 @@ Father
 Father_Email
 '''.split('\n')[1:-1]]
 
+TEST_STUDENT_HEADERS = [s.strip() for s in '''
+Student_Number
+First_Name
+Last_Name
+SchoolID
+Gender
+Network_ID
+Sections
+'''.split('\n')[1:-1]]
 
 TEACHER_HEADERS = [s.strip() for s in '''
 TeacherNumber
@@ -122,18 +138,14 @@ class EasyBridgeUploader(object):
         self.year_end = '2017-06-17'
         
         self.students = { }
+        self.extras = { }
         self.teachers = { }
         self.courses = { }
         self.sections = { }
         self.enrollments = { }
         self.course_names = { }
-        self.included_courses = [ 
-            '6100', # Math 6
-            '7100', # Math 7
-            '7177', # Math 7+
-            '8102', # Math 8
-            '8128', # Algebra 8 
-        ]
+        self.included_courses = [ ]
+        self.schools = [ ]
         self.source_dir = source_dir or './source'
         self.output_dir = output_dir or './output'
         try:
@@ -144,12 +156,17 @@ class EasyBridgeUploader(object):
         if effective_date is None:
           effective_date = datetime.date.today()
         self.effective_date = effective_date
+
+    def loadData(self):
+        self.loadMathCourses()
+        self.loadExtraStudents()
         self.loadStudents()
-        self.loadTeachers('kent', False)
-        self.loadTeachers('kent', True)
-        self.loadSections('kent')
-        self.loadEnrollments('kent')
-        
+        for school_name in self.schools:
+            self.loadTeachers(school_name, False)
+            self.loadTeachers(school_name, True)
+            self.loadSections(school_name)
+            self.loadEnrollments(school_name)
+
     def excludeFromEnrollment(self, school_course_id):
         for ex in DO_NOT_ENROLL:
             if ex == school_course_id:
@@ -160,12 +177,46 @@ class EasyBridgeUploader(object):
                 if school_id == test_school:
                     return True
         return False    
-        
+
     def getTeacherName(self, teacher_id):
         teacher_data = self.teachers.get(teacher_id)
         if teacher_data:
             return teacher_data['Last_Name']
         return '?'
+
+    def loadMathCourses(self):
+        with open(os.path.join(self.source_dir, 'math-courses.txt')) as f:
+            fieldnames = None if not self.autosend else MATH_COURSE_HEADERS
+            courses = csv.DictReader(f, fieldnames=fieldnames,
+                dialect='excel-tab', lineterminator=LINETERM_IN)
+            for row in courses:
+                school_id = row['SchoolID']
+                course_number = row['Course_Number']
+                course_id = '.'.join((school_id, course_number))
+                self.included_courses.append(course_id)
+                school_name = row['School_Name']
+                if school_name not in self.schools:
+                    self.schools.append(school_name)
+
+    # This is for teachers posing as students
+    def loadExtraStudents(self):
+        with open(os.path.join(self.source_dir, 'extra-students.txt')) as f:
+            fieldnames = None if not self.autosend else TEST_STUDENT_HEADERS
+            students = csv.DictReader(f, fieldnames=fieldnames,
+                dialect='excel-tab', lineterminator=LINETERM_IN)
+            for row in students:
+                student_id = 'S' + row['Student_Number']
+                school_id = row['SchoolID']
+                row.update({'Enrolled': '1'})
+                self.students[student_id] = row
+                
+                # Add extra enrollments
+                sections = row['Sections'].split(',')
+                for section in sections:
+                    school_section_id = '.'.join((school_id, section))
+                    if school_section_id not in self.extras:
+                        self.extras[school_section_id] = [ ]
+                    self.extras[school_section_id].append(student_id)
 
     def loadStudents(self):
         with open(os.path.join(self.source_dir, 'students.txt')) as f:
@@ -176,7 +227,7 @@ class EasyBridgeUploader(object):
                 student_id = 'S' + row['Student_Number']
                 row.update({'Enrolled': '0'})
                 self.students[student_id] = row
-    
+
     # Create an assignments-kent.txt file that has the assigned teachers (and aides)
     # Same format as teachers-kent.txt            
     def loadTeachers(self, school_name, assignments):
@@ -204,8 +255,8 @@ class EasyBridgeUploader(object):
             for row in courses:
                 school_id = row['SchoolID']
                 course_number = row['Course_Number']
-                if course_number in self.included_courses:
-                    course_id = '.'.join((school_id, course_number))
+                course_id = '.'.join((school_id, course_number))
+                if course_id in self.included_courses:
                     self.courses[course_id] = row
 
         with open(os.path.join(self.source_dir, 'sections-%s.txt' % school_name)) as f:
@@ -217,7 +268,8 @@ class EasyBridgeUploader(object):
                 course_number = row['Course_Number']
                 section_number = row['Section_Number']
                 teacher_id = 'T' + row['[05]TeacherNumber']
-                if course_number in self.included_courses:
+                course_id = '.'.join((school_id, course_number))
+                if course_id in self.included_courses:
                     if teacher_id in self.teachers:
                         if self.teachers[teacher_id]['Status'] == '1':
                             if self.teachers[teacher_id]['Assigned'] == '0':
@@ -228,7 +280,7 @@ class EasyBridgeUploader(object):
                             print "section %s.%s (%s): teacher %s is not active" % (course_number, section_number, school_id, teacher_id)
                     else:
                         print "section %s.%s (%s): missing teacher %s" % (course_number, section_number, school_id, teacher_id)
-                
+
     def loadEnrollments(self, school_name):
         with open(os.path.join(self.source_dir, 'rosters-%s.txt' % school_name)) as f:
             fieldnames = None if not self.autosend else CC_HEADERS
@@ -241,13 +293,14 @@ class EasyBridgeUploader(object):
                     school_id = row['SchoolID']
                     course_number = row['Course_Number']
                     section_number = row['Section_Number']
-                    if course_number in self.included_courses:
+                    course_id = '.'.join((school_id, course_number))
+                    if course_id in self.included_courses:
                         student_id = 'S' + row['[01]Student_Number']
                         teacher_id = 'T' + row['[05]TeacherNumber']
                         enrollment_id = '.'.join((school_id, course_number, section_number, student_id))
                         self.enrollments[enrollment_id] = row
                         self.students[student_id]['Enrolled'] = '1'
-                        
+
     def dumpActiveEnrollments(self):
         f = sys.stdout
         w = csv.writer(f, dialect='excel-tab')
@@ -278,7 +331,6 @@ class EasyBridgeUploader(object):
                 '800 College Ave', '', 'Kentfield', 'CA', '94904', '415-458-5970'])
 
     def writeSectionsFile(self):
-        seen_courses = { }
         course_year = str(self.current_year + 1)
         with open(os.path.join(self.output_dir, 'PIF_SECTION.txt'), 'w')  as f:
             w = csv.writer(f, dialect='excel', quoting=csv.QUOTE_ALL)
@@ -295,12 +347,14 @@ class EasyBridgeUploader(object):
                     native_section_code = '.'.join((course_number, section_number))
                     course_name = self.courses[course_id]['Course_Name']
                     period = re.sub(r'^(\d+)(.+)$', r'P\1', row['Expression'])
+                    date_start = formatDate(row['[13]FirstDay'])
+                    date_end = formatDate(row['[13]LastDay'])
 
                     # TODO: Check Onboarding Guide about maximum length of the section name 
                     section_name = course_name + ' - ' + self.getTeacherName('T' + row['[05]TeacherNumber']) + ' ' + period + ' ' + course_year
                     w.writerow([native_section_code, school_id,
-                        formatDate(row['[13]FirstDay']), formatDate(row['[13]LastDay']), 
-                        self.current_year, course_number, 
+                        date_start, date_end,
+                        self.current_year, course_number,
                         course_name, section_name, section_number])
 
     def writeStaffFile(self):
@@ -315,7 +369,7 @@ class EasyBridgeUploader(object):
                     first_name = teacher_data['First_Name']
                     email = teacher_data['Email_Addr']
                     w.writerow([teacher_number, last_name, first_name, email, teacher_number, email])
-        
+
     def writeStudentFile(self):
         with open(os.path.join(self.output_dir, 'STUDENT.txt'), 'w') as f:
             w = csv.writer(f, dialect='excel', quoting=csv.QUOTE_ALL)
@@ -363,9 +417,23 @@ class EasyBridgeUploader(object):
                 student_number = self.students[student_id]['Student_Number']
                 section_student_code = '.'.join((course_number, section_number, student_number))
                 native_section_code = '.'.join((course_number, section_number))
+                date_start = formatDate(enrollment_data['DateEnrolled'])
+                date_end = formatDate(enrollment_data['DateLeft'])
                 w.writerow([section_student_code, student_number, native_section_code,
-                    formatDate(enrollment_data['DateEnrolled']), formatDate(enrollment_data['DateLeft']),
-                    self.current_year])
+                    date_start, date_end, self.current_year])
+            
+            # Now handle special "extras" - teachers posing as students, etc.
+            for school_section_id in self.extras:
+                school_id, course_number, section_number = school_section_id.split('.')
+                extras = self.extras[school_section_id]
+                for student_id in extras:
+                    student_number = self.students[student_id]['Student_Number']
+                    section_student_code = '.'.join((course_number, section_number, student_number))
+                    native_section_code = '.'.join((course_number, section_number))
+                    date_start = formatDate(self.sections[school_section_id]['[13]FirstDay'])
+                    date_end = formatDate(self.sections[school_section_id]['[13]LastDay'])
+                    w.writerow([section_student_code, student_number, native_section_code,
+                        date_start, date_end, self.current_year])
 
     def writeAssignmentFile(self):
         with open(os.path.join(self.output_dir, 'ASSIGNMENT.txt'), 'w')  as f:
@@ -396,9 +464,9 @@ class EasyBridgeUploader(object):
             return
         try:
             with sftp.cd(folder):
-	            localpath = os.path.join(self.output_dir, 'KENTFIELD.zip')
-	            sftp.put(localpath)
-	            print "zip file uploaded"
+              localpath = os.path.join(self.output_dir, 'KENTFIELD.zip')
+              sftp.put(localpath)
+              print "zip file uploaded"
         except Exception as e:
             print "Can't put SFTP: %s" % e
         finally:
@@ -421,8 +489,9 @@ if __name__ == '__main__':
     eff_date = None
     if args.effective_date:
       eff_date = parseDate(args.effective_date)
-      
+    
     uploader = EasyBridgeUploader(source_dir=args.source_dir, output_dir=args.output_dir, autosend=args.autosend, effective_date=eff_date)
+    uploader.loadData()
     if args.dump:
         uploader.dumpAllCourses()
         uploader.dumpActiveEnrollments()
@@ -437,6 +506,6 @@ if __name__ == '__main__':
         uploader.writeAssignmentFile()
         uploader.zipAllFiles()
         if args.dry_run:
-        	print "dry run, zip file created but not uploaded"
+            print "dry run, zip file created but not uploaded"
         else:
-	        uploader.uploadZipFile('sftp.pifdata.net', 'SIS', args.username, args.password)
+            uploader.uploadZipFile('sftp.pifdata.net', 'SIS', args.username, args.password)
