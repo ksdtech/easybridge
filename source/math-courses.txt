@@ -1,6 +1,9 @@
-104	6100	Math 6	kent
-104	7100	Math 7	kent
-104	7177	Math 7+	kent
-104	8102	Math 8	kent
-104	8128	Algebra 8	kent
-104	9911	Extended Math	kent
+104	6100	6100	Math 6	kent
+104	7100	7100	Math 7	kent
+104	7177	7177	Math 7+	kent
+104	8102	8102	Math 8	kent
+104	8128	8128	Algebra 8	kent
+104	9911	9911	Extended Math	kent
+104	5102	5102	Math Core 5	kent
+104	5102.71	5102.7	Math Core 5	kent
+104	5104	5102	Math Core 5	kent
