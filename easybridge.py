@@ -466,7 +466,8 @@ class EasyBridgeUploader(object):
                 if course_id in self.course_map:
                     course_number = self.course_map[course_id]
 
-                native_section_code = '.'.join((course_number, section_number))
+                source_section_code = '.'.join((course_number, section_number))
+                native_section_code = source_section_code
                 if native_section_code in self.section_map:
                     native_section_code = self.section_map[native_section_code]
 
@@ -474,6 +475,7 @@ class EasyBridgeUploader(object):
                 if section_student_code not in seen_enrollments:
                     date_start = formatDate(enrollment_data['DateEnrolled'])
                     date_end = formatDate(enrollment_data['DateLeft'])
+                    seen_enrollments[section_student_code] = (source_section_code, date_start, date_end)
                     w.writerow([section_student_code, student_number, native_section_code,
                         date_start, date_end, self.current_year])
 
