@@ -1,4 +1,10 @@
 .DS_Store
 known_hosts.txt
 *.cmd
+source/assignments*
+source/courses*
+source/rosters*
+source/sections*
+source/students*
+source/teachers*
 output/*
