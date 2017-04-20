@@ -1,0 +1,52 @@
+<html>
+<head>
+<meta charset="utf-8">
+<title>{{ page_title }}</title>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
+</head>
+<body>
+<div class="container" style="margin-top: 20px">
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h3 class="panel-title">{{ page_title }}</h3>
+        </div>
+        <div class="panel-body">
+            <form method="POST">
+                <table class="table">
+                    <tr>
+                        <th>Student No</th>
+                        <th>First Name</th>
+                        <th>Last Name</th>
+                        <th>Gender</th>
+                        <th>Email Prefix</th>
+                        <th>Remove</th>
+                    </tr>
+                    {% for row in records %}
+                    <tr>
+                        <td>{{ row[0] }}</td>
+                        <td>{{ row[1] }}</td>
+                        <td>{{ row[2] }}</td>
+                        <td>{{ row[4] }}</td>
+                        <td>{{ row[5] }}</td>
+                        <td><input type="checkbox" name="remove_{{ row[0] }}" value="1"></td>
+                    </tr>
+                    {% endfor %}
+                    <tr>
+                        <td><input type="text" name="student_number" value=""></td>
+                        <td><input type="text" name="first_name" value=""></td>
+                        <td><input type="text" name="last_name" value=""></td>
+                        <td><select name="gender">
+                            <option value="M">M
+                            <option value="F">F
+                        </select></td>
+                        <td><input type="text" name="email" value=""></td>
+                        <td>&nbsp;</td>
+                    </tr>
+                </table>
+                <input type="submit" class="btn btn-primary" value="Submit">
+            </form>
+        </div>
+    </div>
+</div>
+</body>
+</html>
