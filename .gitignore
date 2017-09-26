@@ -1,6 +1,9 @@
 .DS_Store
-known_hosts.txt
+*.pyc
+*.pyo
 *.cmd
+*.log
+known_hosts.txt
 source/assignments*
 source/courses*
 source/rosters*
