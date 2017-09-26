@@ -134,9 +134,9 @@ def parseDate(s):
 class EasyBridgeUploader(object):
     def __init__(self, source_dir=None, output_dir=None, autosend=False, effective_date=None):
         # Must change at start of year
-        self.current_year = 2016
-        self.year_start = '2016-08-29'
-        self.year_end = '2017-06-17'
+        self.current_year = 2017
+        self.year_start = '2017-09-05'
+        self.year_end = '2018-06-16'
 
         self.students = { }
         self.extras = { }
@@ -325,8 +325,17 @@ class EasyBridgeUploader(object):
                         enrollment_id = '.'.join((school_id, course_number, section_number, student_id))
                         if enrollment_id not in self.enrollments:
                             self.enrollments[enrollment_id] = row
-                            self.students[student_id]['Enrolled'] = '1'
-
+                            try:
+                                self.students[student_id]['Enrolled'] = '1'
+                            except KeyError:
+                                print "------------------------------------------"
+                                print "Enrollment error for student %s in course: %s-%s" % (student_id, course_number, section_number)
+                                print "Effective Date - Start Date - End Date"
+                                print "%s       %s   %s" % (self.effective_date, start_date, end_date)
+                                print "Perhaps the student's actual start date is within 7 days of the effective date, pushing the above start date to earlier than the effective date?"
+                                print "------------------------------------------"
+                                raise
+                                
     def dumpActiveEnrollments(self):
         f = sys.stdout
         w = csv.writer(f, dialect='excel-tab')
